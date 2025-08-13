@@ -16,11 +16,9 @@ Flood Detection and Avoidance is an IoT-based project designed to **monitor wate
 - **Communication:** GSM Module / Wi-Fi
 - **Cloud / Dashboard:** ThingSpeak / Blynk for data visualization
 
-# Installation
-1. Clone the repository:
-```bash
-git clone https://github.com/Vijay-vision18/Flood-Detection-and-Avoidance.git
-Install required Python packages:
+# Required Software
+  Arduino IDE
+
 
 Author
 Vijay Gowda
