@@ -1,0 +1,136 @@
+#include <DHT.h> 
+#include <WiFi.h>
+#include <WiFiClientSecure.h> 
+#include <UniversalTelegramBot.h>
+
+#define DHTPIN 2 
+#define DHTTYPE DHT11 
+#define TRIGGER_PIN 5
+#define ECHO_PIN 18
+#define ALERT_PIN 14
+
+
+// WiFi configuration
+const char* ssid = "karthik";	// Enter your WIFI SSID
+const char* password = "karthi2003";	// Enter your WIFI Password
+
+
+// Telegram configuration (multiple bot tokens and chat IDs) 
+#define BOT_COUNT 4
+
+const char*botTokens[BOT_COUNT] = {
+"7738394545:AAEaC5hqN8306HCvAFn9UHs26ffniy0oHS4", // Bot 1 Token 
+"8088094286:AAG2DMEnwl8Z8y5-1aKlYAf0fOhUrl5iqQA", // Bot 2 Token
+"7761796721:AAEyyD5neI4WbEj5sz6kK85i9bxewvXMSqY", // Bot 3 Token (can be empty if not used)
+"7861470129:AAH2CuXDvuTOwDom-8YsL-RoAu3us-APvAw"	// Bot 4 Token (can be empty if not used)
+};
+
+const char* chatIDs[BOT_COUNT] = { 
+  "6466703641", // Chat ID for Bot 1 
+  "1129550584", // Chat ID for Bot 2
+"1433349006", // Chat ID for Bot 3 (can be empty if not used) 
+"1090611459"	// Chat ID for Bot 4 (can be empty if not used)
+};
+
+
+WiFiClientSecure client;
+UniversalTelegramBot* bots[BOT_COUNT];
+
+
+DHT dht(DHTPIN, DHTTYPE);
+
+
+void setup() {
+Serial.begin(115200); 
+dht.begin();
+pinMode(TRIGGER_PIN, OUTPUT); 
+pinMode(ECHO_PIN, INPUT);
+pinMode(ALERT_PIN, OUTPUT);
+digitalWrite(ALERT_PIN, LOW);
+
+
+// Connect to WiFi 
+WiFi.mode(WIFI_STA); 
+WiFi.begin(ssid, password);
+while (WiFi.status() != WL_CONNECTED) { 
+delay(500);
+Serial.print(".");
+
+}
+Serial.println("\nWiFi connected!");
+
+
+client.setInsecure(); // Disables SSL certificate verification (insecure, but works for testing)
+
+
+// Initialize all bots
+for (int i = 0; i < BOT_COUNT; i++) {
+if (strlen(botTokens[i]) > 0 && strlen(chatIDs[i]) > 0) { 
+bots[i] = new UniversalTelegramBot(botTokens[i], client);
+bots[i]->sendMessage(chatIDs[i], "WiFi Connected and System has Started!", ""); 
+Serial.println("Bot " + String(i + 1) + " initialized.");
+}
+}
+}
+
+
+void sendAlertMessage(float temperature, float humidity, float distance) {
+// Construct the alert message with actual sensor values
+String alertMessage = "´'·_▲` ALERT! Due to heavy rainfall and rising water levels, a flood warning! :\n";
+alertMessage += "🌡 Temperature: " + String(temperature, 1) + "°C\n"; alertMessage += "  Humidity: " + String(humidity, 1) + "%\n";
+alertMessage += "·˙k ˘ Water Level: " + String(distance, 1) + " cm\n";
+
+
+for (int i = 0; i < BOT_COUNT; i++) { 
+if (bots[i]) {
+ Serial.println("Sending message to Bot " + String(i + 1) + "...");
+
+if (!bots[i]->sendMessage(chatIDs[i], alertMessage, "")) {
+ Serial.println("Failed to send message to Bot " + String(i + 1) + ". Skipping.");
+}
+}
+}
+}
+
+
+void loop() {
+float humidity = dht.readHumidity();
+float temperature = dht.readTemperature();
+
+
+Serial.print("Temp: ");
+Serial.print(temperature);
+Serial.print("°C | Humidity: "); 
+Serial.print(humidity);
+Serial.println("%");
+
+
+// Measure Water Level
+digitalWrite(TRIGGER_PIN, LOW); 
+delayMicroseconds(2);
+digitalWrite(TRIGGER_PIN, HIGH); 
+delayMicroseconds(10);
+digitalWrite(TRIGGER_PIN, LOW);
+long duration = pulseIn(ECHO_PIN, HIGH); 
+float distance = duration * 0.034 / 2;
+
+Serial.print("Water Level: "); 
+Serial.print(distance);
+Serial.println(" cm");
+
+
+// Condition to trigger ALERT (temperature > 29, humidity > 70, and water level < 10 cm) 
+if (temperature > 29.0 && humidity > 70.0 && distance < 10.0) {
+digitalWrite(ALERT_PIN, HIGH);
+Serial.println("`´'·_▲ ALERT! High values detected. Pin 14 ON.");
+
+
+// Send message to all valid Telegram bots with actual values 
+sendAlertMessage(temperature, humidity, distance);
+} else {
+digitalWrite(ALERT_PIN, LOW);
+}
+
+
+delay(2000);
+}
